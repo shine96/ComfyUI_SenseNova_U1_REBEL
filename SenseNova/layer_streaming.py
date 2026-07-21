@@ -183,28 +183,34 @@ class ExpertStreamingWrapper(nn.Module):
 
 class _SimpleLayerStore:
     """简化版层存储，支持按需加载和立即释放"""
-    
+
     def __init__(self, layers: nn.ModuleList, target_device: torch.device) -> None:
         self.target_device = target_device
         self.num_layers = len(layers)
-        
+
         # 保留CPU端的原始参数引用
         self._cpu_params: list[dict[str, torch.Tensor]] = []
         for layer in layers:
             cpu_copy = {}
             for name, tensor in itertools.chain(layer.named_parameters(), layer.named_buffers()):
+                if tensor is None:
+                    continue
                 cpu_copy[name] = tensor.data.cpu()  # 保留在CPU上
             self._cpu_params.append(cpu_copy)
-    
+
     def load_layer_to_gpu(self, idx: int, layer: nn.Module) -> None:
         """将指定层加载到GPU"""
         for name, param in itertools.chain(layer.named_parameters(), layer.named_buffers()):
+            if param is None:
+                continue
             if name in self._cpu_params[idx]:
                 param.data = self._cpu_params[idx][name].to(self.target_device)
-    
+
     def unload_layer_from_gpu(self, idx: int, layer: nn.Module) -> None:
         """将指定层从GPU卸载回CPU"""
         for name, param in itertools.chain(layer.named_parameters(), layer.named_buffers()):
+            if param is None:
+                continue
             if name in self._cpu_params[idx]:
                 param.data = self._cpu_params[idx][name]  # 恢复为CPU副本
 
