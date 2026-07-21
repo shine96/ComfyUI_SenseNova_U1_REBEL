@@ -135,22 +135,54 @@ class SenseNovaU1Editing:
             with init_empty_weights():
                 self.model=AutoModel.from_config(self.config)
             if self.checkpoint.endswith(".gguf"):
-                sd=load_gguf_checkpoint(self.checkpoint) 
-                #match_state_dict(self.model, sd,show_num=10)
-                lora_sd=st_load_file(lora_path) if lora_path is not None else None
-                set_gguf2meta_model(self.model,sd,self.dtype,torch.device("cpu"),lora_sd=lora_sd)
-                self.model.eval() 
+                from ...convrot_loader import load_gguf_into_meta_model,load_gguf_lora
+                info =load_gguf_into_meta_model(self.model, self.checkpoint,      
+                                    device="cpu", dtype=torch.bfloat16)
+                print(info)
                 if lora_path is not None:
+                    lora_sd=st_load_file(lora_path)
+                    load_gguf_lora(self.model,lora_sd)
                     del lora_sd
+                # sd=load_gguf_checkpoint(self.checkpoint) 
+                # #match_state_dict(self.model, sd,show_num=10)
+                # lora_sd=st_load_file(lora_path) if lora_path is not None else None
+                # set_gguf2meta_model(self.model,sd,self.dtype,torch.device("cpu"),lora_sd=lora_sd)
+                # del sd
+                self.model.eval() 
+                # if lora_path is not None:
+                #     del lora_sd
             else:
                 sd=st_load_file(self.checkpoint)
-                self.model.load_state_dict(sd, strict=False, assign=True)
-                self.model = self.model.to(device=torch.device("cpu"),dtype=self.dtype)
-                self.model.eval()
+                use_scale   = any(k.endswith(".scale_weight") for k in sd.keys())
+                use_convrot = any(k.endswith(".comfy_quant") for k in sd.keys())
+                if use_scale:
+                    from ...fp8_scaled_loader import load_fp8_scaled_into_meta_model
+                    info =load_fp8_scaled_into_meta_model(self.model, sd)
+                    print(info)
+                elif use_convrot:
+                    from ...convrot_loader import load_convrot_into_meta_model
+                    info = load_convrot_into_meta_model(self.model, self.checkpoint,
+                              )
+                    print(info)
+                else:
+                    self.model.load_state_dict(sd, strict=False, assign=True)
+                    self.model = self.model.to(device=torch.device("cpu"),dtype=self.dtype)
+                    self.model.eval()
                 if lora_path is not None:
                     print(f"load lora {lora_path}")
-                    self.model = load_and_merge_lora_weight_from_safetensors(self.model, lora_path)
-            del sd
+                    lora_sd = st_load_file(lora_path)
+                    # fp8-patched layers (FP8ScaledLinear): merge at de-quant time via
+                    # the loader's LoRA buffers (mirrors load_gguf_lora).
+                    if use_scale:
+                        from ...fp8_scaled_loader import load_fp8_scaled_lora
+                        load_fp8_scaled_lora(self.model, lora_sd)
+                    elif use_convrot:
+                        from ...convrot_loader import load_convrot_lora
+                        load_convrot_lora(self.model, lora_sd)
+                    else:
+                        self.model = load_and_merge_lora_weight_from_safetensors(self.model, lora_path)
+                    del lora_sd
+                del sd
             gc.collect()
         else:
             raise ValueError("Checkpoint  is not provided for loading the model.")
