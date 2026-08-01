@@ -122,7 +122,7 @@ class SenseNovaU1Editing:
         self.model_path=model_path
         #check_checkpoint_compatibility(config)
         self.checkpoint = checkpoint
-        self.repo=os.path.join(self.model_path,"SenseNova-U1-8B-MoT-SFT") if not "a3b" in self.checkpoint.lower() else os.path.join(self.model_path,"SenseNova-U1-A3B-MoT-SFT")
+        self.repo=os.path.join(self.model_path,"SenseNova-U1-8B-MoT-SFT") if not "a3b" in self.checkpoint.lower() and  not "u1.5" in self.checkpoint.lower() else os.path.join(self.model_path,"SenseNova-U1.5-8B-MoT-Preview") if  "u1.5" in self.checkpoint.lower() else os.path.join(self.model_path,"SenseNova-U1-A3B-MoT-SFT")
         self.is_moe = "SenseNova-U1-A3B-MoT-SFT" in self.repo
         self.config = AutoConfig.from_pretrained(self.repo)
         self.tokenizer = AutoTokenizer.from_pretrained(self.repo)
@@ -138,7 +138,7 @@ class SenseNovaU1Editing:
                 from ...convrot_loader import load_gguf_into_meta_model,load_gguf_lora
                 info =load_gguf_into_meta_model(self.model, self.checkpoint,      
                                     device="cpu", dtype=torch.bfloat16)
-                print(info)
+                #print(info)
                 if lora_path is not None:
                     lora_sd=st_load_file(lora_path)
                     load_gguf_lora(self.model,lora_sd)
@@ -158,12 +158,12 @@ class SenseNovaU1Editing:
                 if use_scale:
                     from ...fp8_scaled_loader import load_fp8_scaled_into_meta_model
                     info =load_fp8_scaled_into_meta_model(self.model, sd)
-                    print(info)
+                    #print(info)
                 elif use_convrot:
                     from ...convrot_loader import load_convrot_into_meta_model
                     info = load_convrot_into_meta_model(self.model, self.checkpoint,
                               )
-                    print(info)
+                    #print(info)
                 else:
                     self.model.load_state_dict(sd, strict=False, assign=True)
                     self.model = self.model.to(device=torch.device("cpu"),dtype=self.dtype)

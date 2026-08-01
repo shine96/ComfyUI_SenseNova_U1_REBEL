@@ -2,6 +2,7 @@
 [SenseNova-U1](https://github.com/OpenSenseNova/SenseNova-U1): Unifying Multimodal Understanding and Generation with NEO-Unify Architecture
 
 # Update
+* Add U1.5 support 新增U1.5支持(GGUF/INT8/FP8)，模型缓慢上传hf，获取去我的云盘拉取
 * 新增fp8和convrot int8模型支持(Infographic-V3)，support fp8 and convrot int8 models
 * 暂时以同步卸载模式适配moe模型,moe模式12G显存， 文生图时，count设置为8-9，图生图设置为4左右..
 * support SenseNova-U1-A3B-MoT-SFT and SenseNova-U1-A3B-MoT and SenseNova-U1-A3B-MoT-SFT-gguf ,支持A3B MOE的单体合并模型和gguf模型,快速测试可以修改节点加载repo的分割模型.
@@ -24,8 +25,9 @@ pip install -r requirements.txt
 
 3.checkpoints 
 ----
-[8B-links](https://huggingface.co/smthem/SenseNova-U1-8B-MoT-Merger-gguf)  
+[8B-links](https://huggingface.co/smthem/SenseNova-U1-8B-MoT-Merger-gguf) 
 [A3B-links](https://huggingface.co/smthem/SenseNova-U1-A3B-MoT-SFT-gguf)  
+[U1.5-8B-links](https://huggingface.co/smthem/SenseNova-U1-A3B-MoT-SFT-gguf) 
 [A3B-links-modelscope](https://www.modelscope.cn/models/smthem/SenseNova-U1-A3B-MoT-SFT) 
 [lora](https://huggingface.co/sensenova/SenseNova-U1-8B-MoT-LoRAs)
 [夸克网盘](https://pan.quark.cn/s/8180628d73c5)
@@ -46,6 +48,9 @@ pip install -r requirements.txt
 
 4. Example
 ----
+* U1.5-8B 
+![](https://github.com/smthemex/ComfyUI_SenseNova_U1/blob/main/example_workflows/U15_preview.png)
+![](https://github.com/smthemex/ComfyUI_SenseNova_U1/blob/main/example_workflows/U15_preview1.png)
 * A3B MOE
 ![](https://github.com/smthemex/ComfyUI_SenseNova_U1/blob/main/example_workflows/example_a3bedit.png)
 ![](https://github.com/smthemex/ComfyUI_SenseNova_U1/blob/main/example_workflows/example_a3btest.png)
@@ -58,5 +63,22 @@ pip install -r requirements.txt
 ![](https://github.com/smthemex/ComfyUI_SenseNova_U1/blob/main/example_workflows/example_ti2i.png)
 ![](https://github.com/smthemex/ComfyUI_SenseNova_U1/blob/main/example_workflows/example_t2i.png)
 
-Citation
+5 .Citation
 -----
+
+```
+@misc{sensenova2026neounify,
+  title        = {NEO-unify: Building Native Multimodal Unified Models End to End},
+  author       = {SenseNova},
+  journal      = {Hugging Face blog},
+  url          = {https://huggingface.co/blog/sensenova/neo-unify},
+  year         = {2026}
+}
+
+@article{sensenova2026sensenovau1,
+  title        = {SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture},
+  author       = {Diao, Haiwen and Wu, Penghao and Deng, Hanming and Wang, Jiahao and Bai, Shihao and Wu, Silei and Fan, Weichen and Ye, Wenjie and Tong, Wenwen and Fan, Xiangyu and others},
+  journal      = {arXiv preprint arXiv:2605.12500},
+  year         = {2026}
+}
+```
