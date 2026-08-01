@@ -25,12 +25,12 @@ pip install -r requirements.txt
 
 3.checkpoints 
 ----
-[8B-links](https://huggingface.co/smthem/SenseNova-U1-8B-MoT-Merger-gguf) 
-[A3B-links](https://huggingface.co/smthem/SenseNova-U1-A3B-MoT-SFT-gguf)  
-[U1.5-8B-links](https://huggingface.co/smthem/SenseNova-U1-A3B-MoT-SFT-gguf) 
-[A3B-links-modelscope](https://www.modelscope.cn/models/smthem/SenseNova-U1-A3B-MoT-SFT) 
-[lora](https://huggingface.co/sensenova/SenseNova-U1-8B-MoT-LoRAs)
-[夸克网盘](https://pan.quark.cn/s/8180628d73c5)
+[8B-links](https://huggingface.co/smthem/SenseNova-U1-8B-MoT-Merger-gguf)  
+[A3B-links](https://huggingface.co/smthem/SenseNova-U1-A3B-MoT-SFT-gguf)   
+[U1.5-8B-links](https://huggingface.co/smthem/SenseNova-U1-8B-MoT-Merger-gguf)  
+[A3B-links-modelscope](https://www.modelscope.cn/models/smthem/SenseNova-U1-A3B-MoT-SFT)   
+[lora](https://huggingface.co/sensenova/SenseNova-U1-8B-MoT-LoRAs)  
+[夸克网盘](https://pan.quark.cn/s/8180628d73c5)  
     
 ```
 ├── ComfyUI/models/gguf/
