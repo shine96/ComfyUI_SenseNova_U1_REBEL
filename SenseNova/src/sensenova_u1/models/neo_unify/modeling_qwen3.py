@@ -289,6 +289,47 @@ def eager_attention_forward(
     return attn_output, attn_weights
 
 
+def _rope_param(config, key, default=None):
+    """Read a RoPE knob from a config across transformers 4.x / 5.x layouts.
+
+    transformers 5.x restructured RoPE parameters: ``rope_theta``, ``rope_type``
+    and friends moved from top-level config attributes (4.x) into the
+    standardized ``rope_parameters`` dict. Per-layer RoPE configs (nested dicts
+    keyed by ``layer_types``) are flattened by taking the first non-empty layer
+    group, since every NEO-Unify attention layer shares the same rotary setup.
+    """
+    rope_parameters = getattr(config, "rope_parameters", None)
+    if isinstance(rope_parameters, dict):
+        value = rope_parameters.get(key)
+        if value is not None:
+            return value
+        for params in rope_parameters.values():
+            if isinstance(params, dict):
+                value = params.get(key)
+                if value is not None:
+                    return value
+    value = getattr(config, key, None)
+    return default if value is None else value
+
+
+def _set_rope_theta(config, value):
+    """Override the RoPE base frequency on a config copy for both layouts.
+
+    Writes the legacy top-level ``rope_theta`` attribute (transformers 4.x) and,
+    when present, the ``rope_parameters`` dict (transformers 5.x) so downstream
+    RoPE initialisation observes the same override regardless of version.
+    """
+    setattr(config, "rope_theta", value)
+    rope_parameters = getattr(config, "rope_parameters", None)
+    if isinstance(rope_parameters, dict):
+        if "rope_theta" in rope_parameters or not rope_parameters:
+            rope_parameters["rope_theta"] = value
+        else:  # per-layer nested RoPE config
+            for params in rope_parameters.values():
+                if isinstance(params, dict):
+                    params["rope_theta"] = value
+
+
 def _compute_default_rope_parameters(config, device=None, **_kwargs):
     """Default RoPE frequencies, inlined to avoid breakage across transformers versions.
 
@@ -296,8 +337,8 @@ def _compute_default_rope_parameters(config, device=None, **_kwargs):
     5.x dropped the ``"default"`` key from that table. Having a local copy keeps
     ``Qwen3RotaryEmbedding`` working on both.
     """
-    base = config.rope_theta
-    partial_rotary_factor = getattr(config, "partial_rotary_factor", 1.0)
+    base = _rope_param(config, "rope_theta", 10_000.0)
+    partial_rotary_factor = _rope_param(config, "partial_rotary_factor", 1.0)
     head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
     dim = int(head_dim * partial_rotary_factor)
     attention_factor = 1.0
@@ -312,11 +353,13 @@ class Qwen3RotaryEmbedding(nn.Module):
 
     def __init__(self, config: Qwen3Config, device=None):
         super().__init__()
-        # BC: "rope_type" was originally "type"
-        if hasattr(config, "rope_scaling") and isinstance(config.rope_scaling, dict):
-            self.rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type"))
-        else:
-            self.rope_type = "default"
+        # BC: "rope_type" was originally "type"; scaling knobs live either in the
+        # top-level `rope_scaling` attr (transformers 4.x) or in the standardized
+        # `rope_parameters` dict (transformers 5.x).
+        rope_type = _rope_param(config, "rope_type", None)
+        if rope_type is None and isinstance(getattr(config, "rope_scaling", None), dict):
+            rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type"))
+        self.rope_type = rope_type or "default"
         self.max_seq_len_cached = config.max_position_embeddings
         self.original_max_seq_len = config.max_position_embeddings
 
@@ -421,7 +464,7 @@ class Qwen3Attention(nn.Module):
 
         hw_config = copy.deepcopy(config)
         hw_config.head_dim = config.head_dim // 4
-        hw_config.rope_theta = config.rope_theta_hw
+        _set_rope_theta(hw_config, config.rope_theta_hw)
         hw_config.max_position_embeddings = config.max_position_embeddings_hw
         self.rotary_emb_hw = Qwen3RotaryEmbedding(config=hw_config)
     

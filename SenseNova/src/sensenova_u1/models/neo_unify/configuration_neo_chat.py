@@ -10,6 +10,26 @@ from .configuration_neo_vit import NEOVisionConfig
 logger = logging.get_logger(__name__)
 
 
+def _mirror_rope_theta(config):
+    """Re-expose ``rope_theta`` as a top-level config attribute.
+
+    transformers 5.x moved the RoPE base frequency from a top-level attribute
+    into the standardized ``rope_parameters`` dict. Mirroring it back keeps
+    code that reads ``config.rope_theta`` (e.g. the NEO-Unify rotary layers)
+    working on both 4.x and 5.x; on 4.x this is a no-op since the attribute is
+    already set by ``Qwen3Config``/``Qwen3MoeConfig``.
+    """
+    if hasattr(config, "rope_theta"):
+        return
+    rope_parameters = getattr(config, "rope_parameters", None)
+    rope_theta = (
+        rope_parameters.get("rope_theta") if isinstance(rope_parameters, dict) else None
+    )
+    if rope_theta is None:
+        rope_theta = getattr(config, "default_theta", 10000.0)
+    config.rope_theta = rope_theta
+
+
 class NEOLLMConfig(Qwen3Config):
     """Config for the dense Qwen3 backbone used by NEO-Unify.
 
@@ -21,6 +41,7 @@ class NEOLLMConfig(Qwen3Config):
         super().__init__(**kwargs)
         self.rope_theta_hw = rope_theta_hw
         self.max_position_embeddings_hw = max_position_embeddings_hw
+        _mirror_rope_theta(self)
 
 
 class NEOMoELLMConfig(Qwen3MoeConfig):
@@ -55,6 +76,7 @@ class NEOMoELLMConfig(Qwen3MoeConfig):
         super().__init__(**kwargs)
         self.rope_theta_hw = rope_theta_hw
         self.max_position_embeddings_hw = max_position_embeddings_hw
+        _mirror_rope_theta(self)
 
         # Generation-path MoE knobs default to the understanding-path values
         # so legacy single-MoE configs (where both branches share the same
