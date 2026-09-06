@@ -390,6 +390,19 @@ class Qwen3RotaryEmbedding(nn.Module):
         self.register_buffer("inv_freq", inv_freq, persistent=False)
         self.original_inv_freq = self.inv_freq
 
+    @staticmethod
+    def compute_default_rope_parameters(config, device=None, **_kwargs):
+        """Default RoPE frequencies, hooked by transformers 5.x weight init.
+
+        ``PreTrainedModel._init_weights`` on transformers 5.x re-runs the rope
+        init of any module whose class name contains ``RotaryEmbedding`` and
+        which exposes ``original_inv_freq``, calling
+        ``compute_default_rope_parameters(config)`` for the default rope type.
+        Delegating to the shared inlined implementation keeps the recomputed
+        frequencies identical on 4.x and 5.x.
+        """
+        return _compute_default_rope_parameters(config, device)
+
     @torch.no_grad()
     @dynamic_rope_update  # power user: used with advanced RoPE types (e.g. dynamic rope)
     def forward(self, x, position_ids):
