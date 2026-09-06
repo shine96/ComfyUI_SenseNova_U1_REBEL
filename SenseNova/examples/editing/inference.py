@@ -17,7 +17,7 @@ import gc
 from accelerate import init_empty_weights
 from contextlib import AbstractContextManager,contextmanager
 
-from ..utils import _streaming_model,load_gguf_checkpoint, match_state_dict,set_gguf2meta_model,_expert_streaming_ctx
+from ..utils import _streaming_model_,load_gguf_checkpoint, match_state_dict,set_gguf2meta_model,_expert_streaming_ctx
 from ...src.sensenova_u1.models.neo_unify.modeling_qwen3 import set_attn_backend
 from safetensors.torch import load_file as st_load_file
 from ...src.sensenova_u1.models.neo_unify.utils import load_image_native
@@ -197,7 +197,11 @@ class SenseNovaU1Editing:
             if self.is_moe:
                 return _expert_streaming_ctx(self.model,self.device,streaming_prefetch_count)  # 同步模式以减少内存占用
             else:
-                return _streaming_model(
+                # Async prefetch streaming: H2D copies for upcoming layers run on a
+                # side CUDA stream and overlap with the current layer's compute, so
+                # 1-token decode no longer pays the full ~16GB host->device copy
+                # serially. GPU keeps at most 1 + prefetch_count layers resident.
+                return _streaming_model_(
                     self.model,
                     layers_attr="language_model.model.layers",
                     target_device=self.device,

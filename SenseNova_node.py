@@ -72,7 +72,7 @@ class SenseNova_SM_Sampler(io.ComfyNode):
                 io.Float.Input("img_cfg", default=1.0, min=0.0, max=100.0, step=0.1, round=0.01,),
                 io.Float.Input("timestep_shift", default=3.0, min=-1.0, max=10.0, step=0.1, ),
                 io.Int.Input("batch_size", default=1, min=1, max=64,step=1),
-                io.Int.Input("prefetch_count", default=1, min=0, max=64,step=1),
+                io.Int.Input("prefetch_count", default=4, min=0, max=64,step=1),
                 io.Int.Input("interleave_max", default=4, min=1, max=MAX_SEED),
                 io.Combo.Input("cfg_norm",options= ["none", "global", "channel"]),
                 io.Boolean.Input("enhance", default=False),
