@@ -6,7 +6,6 @@ from torch import nn
 
 from transformers.cache_utils import Cache, DynamicCache
 from transformers.generation import GenerationMixin
-from transformers.masking_utils import create_causal_mask
 from transformers.modeling_flash_attention_utils import FlashAttentionKwargs
 from transformers.modeling_layers import GradientCheckpointingLayer
 from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -20,6 +19,7 @@ from .configuration_neo_chat import NEOMoELLMConfig
 from .modeling_qwen3 import (
     Qwen3Attention,
     Qwen3RMSNorm,
+    _create_causal_mask,
     create_block_causal_mask,
 )
 
@@ -419,16 +419,15 @@ class Qwen3MoeModel(Qwen3MoePreTrainedModel):
 
         if not isinstance(causal_mask_mapping := attention_mask, dict):
             if input_ids is not None:
-                mask_kwargs = {
-                    "config": self.config,
-                    "input_embeds": inputs_embeds,
-                    "attention_mask": attention_mask,
-                    "cache_position": cache_position,
-                    "past_key_values": past_key_values,
-                    "position_ids": position_ids,
-                }
                 causal_mask_mapping = {
-                    "full_attention": create_causal_mask(**mask_kwargs),
+                    "full_attention": _create_causal_mask(
+                        config=self.config,
+                        inputs_embeds=inputs_embeds,
+                        attention_mask=attention_mask,
+                        cache_position=cache_position,
+                        past_key_values=past_key_values,
+                        position_ids=position_ids,
+                    ),
                 }
                 self.current_index += 1
                 indexes = torch.LongTensor([[self.current_index], [0], [0]]).to(input_ids.device)

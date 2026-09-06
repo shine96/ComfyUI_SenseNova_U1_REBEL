@@ -5,6 +5,7 @@ import torch._dynamo
 from torch import nn
 
 import copy
+import inspect
 import math
 from transformers.activations import ACT2FN
 from transformers.cache_utils import Cache, DynamicCache
@@ -153,6 +154,38 @@ def _flash_or_sdpa(q, k, v, dropout_p: float = 0.0, softmax_scale=None, causal: 
     if backend == "flash":
         return flash_attn_func(q, k, v, dropout_p=dropout_p, softmax_scale=softmax_scale, causal=causal)
     return _sdpa_attn_func(q, k, v, dropout_p=dropout_p, softmax_scale=softmax_scale, causal=causal)
+
+
+# transformers 5.x renamed the ``input_embeds`` kwarg of ``create_causal_mask``
+# to ``inputs_embeds`` and dropped the unused ``cache_position`` kwarg. Probe the
+# accepted parameter names once so the call sites work on both 4.x and 5.x.
+_CAUSAL_MASK_HAS_CACHE_POSITION = (
+    "cache_position" in inspect.signature(create_causal_mask).parameters
+)
+
+
+def _create_causal_mask(config, inputs_embeds, attention_mask, cache_position, past_key_values, position_ids):
+    """Version-agnostic wrapper around transformers' ``create_causal_mask``.
+
+    4.x accepts ``input_embeds``/``cache_position`` while 5.x renamed the
+    embedding kwarg to ``inputs_embeds`` and dropped ``cache_position``.
+    """
+    if _CAUSAL_MASK_HAS_CACHE_POSITION:
+        return create_causal_mask(
+            config=config,
+            input_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            cache_position=cache_position,
+            past_key_values=past_key_values,
+            position_ids=position_ids,
+        )
+    return create_causal_mask(
+        config=config,
+        inputs_embeds=inputs_embeds,
+        attention_mask=attention_mask,
+        past_key_values=past_key_values,
+        position_ids=position_ids,
+    )
 
 
 def create_block_causal_mask(index: torch.Tensor):
@@ -1153,19 +1186,19 @@ class Qwen3Model(Qwen3PreTrainedModel):
 
         # It may already have been prepared by e.g. `generate`
         if not isinstance(causal_mask_mapping := attention_mask, dict):
-            # Prepare mask arguments
             if input_ids is not None:
-                mask_kwargs = {
-                    "config": self.config,
-                    "input_embeds": inputs_embeds,
-                    "attention_mask": attention_mask,
-                    "cache_position": cache_position,
-                    "past_key_values": past_key_values,
-                    "position_ids": position_ids,
-                }
-                # Create the masks
+                # ``create_causal_mask`` kwargs differ between transformers 4.x
+                # (``input_embeds``/``cache_position``) and 5.x (``inputs_embeds``,
+                # no ``cache_position``) - route through the adapter below.
                 causal_mask_mapping = {
-                    "full_attention": create_causal_mask(**mask_kwargs),
+                    "full_attention": _create_causal_mask(
+                        config=self.config,
+                        inputs_embeds=inputs_embeds,
+                        attention_mask=attention_mask,
+                        cache_position=cache_position,
+                        past_key_values=past_key_values,
+                        position_ids=position_ids,
+                    ),
                 }
                 self.current_index += 1
                 indexes = torch.LongTensor([[self.current_index], [0], [0]]).to(input_ids.device)
